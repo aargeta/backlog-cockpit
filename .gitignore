@@ -1,0 +1,15 @@
+# Personal config + data NEVER enters the repo
+config.local.json
+redact_terms.local.txt
+*.local.json
+*.local.txt
+
+# Generated dashboards (they contain your harvested notes)
+cockpit.local.html
+public/index.html
+*.local.html
+
+# junk
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,171 @@
+{
+  "generated": "2026-07-11",
+  "title": "Backlog Cockpit",
+  "mode": "public",
+  "total": 15,
+  "labels": {
+    "not_sent": "Not sent",
+    "gate": "Gate",
+    "decision": "Decide",
+    "deferred": "Deferred",
+    "parked": "Parked",
+    "awaiting": "Awaiting",
+    "next": "Next",
+    "todo": "To do"
+  },
+  "counts": { "not_sent": 2, "decision": 3, "stale": 5 },
+  "goals": [
+    {
+      "id": "win",
+      "name": "Win work",
+      "icon": "🎯",
+      "color": "#a2641b",
+      "items": [
+        {
+          "kind": "not_sent",
+          "text": "Draft proposal ready, needs final review before send",
+          "project": "Sample Bid A",
+          "source": "vault-project",
+          "age": 12,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "gate",
+          "text": "Blocked until the owner signs the site access agreement",
+          "project": "Sample Bid D",
+          "source": "vault-project",
+          "age": 15,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "decision",
+          "text": "Pick unit-rate vs lump-sum structure before pricing",
+          "project": "Sample Bid C",
+          "source": "vault-project",
+          "age": 8,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "awaiting",
+          "text": "Waiting on GC schedule to price the scope",
+          "project": "Sample Bid B",
+          "source": "vault-project",
+          "age": 4,
+          "link": "https://claude.ai/new?q=example"
+        }
+      ]
+    },
+    {
+      "id": "ship",
+      "name": "Build & ship",
+      "icon": "⛏",
+      "color": "#4d7488",
+      "items": [
+        {
+          "kind": "deferred",
+          "text": "Migrate legacy reports once the new schema lands",
+          "project": "Reporting Engine",
+          "source": "vault-project",
+          "age": 21,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "not_sent",
+          "text": "Release notes drafted for v2.1, still unpublished",
+          "project": "Dashboard Rework",
+          "source": "notes",
+          "age": 11,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "todo",
+          "text": "Add retry logic to the nightly sync job",
+          "project": "Sync Service",
+          "source": "notes",
+          "age": 6,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "next",
+          "text": "Wire the export button to the new CSV endpoint",
+          "project": "Dashboard Rework",
+          "source": "vault-project",
+          "age": 2,
+          "link": "https://claude.ai/new?q=example"
+        }
+      ]
+    },
+    {
+      "id": "firm",
+      "name": "Run the firm",
+      "icon": "⚙",
+      "color": "#3f7d4e",
+      "items": [
+        {
+          "kind": "decision",
+          "text": "Approve the revised equipment calibration budget",
+          "project": "Lab Ops",
+          "source": "notes",
+          "age": 9,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "decision",
+          "text": "Choose a date for the quarterly safety review",
+          "project": "Safety Program",
+          "source": "notes",
+          "age": 5,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "awaiting",
+          "text": "Vendor quote pending for the second density gauge",
+          "project": "Lab Ops",
+          "source": "vault-project",
+          "age": 3,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "todo",
+          "text": "Update the onboarding checklist for new field techs",
+          "project": "Field Team",
+          "source": "notes",
+          "age": 0,
+          "link": "https://claude.ai/new?q=example"
+        }
+      ]
+    },
+    {
+      "id": "personal",
+      "name": "Personal",
+      "icon": "🌱",
+      "color": "#b8801f",
+      "items": [
+        {
+          "kind": "parked",
+          "text": "Sketch the garden irrigation layout for the back lot",
+          "project": "Home Projects",
+          "source": "notes",
+          "age": 30,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "awaiting",
+          "text": "Waiting on license renewal confirmation letter",
+          "project": "Certifications",
+          "source": "notes",
+          "age": null,
+          "link": "https://claude.ai/new?q=example"
+        },
+        {
+          "kind": "next",
+          "text": "Book travel for the fall industry conference",
+          "project": "Development",
+          "source": "notes",
+          "age": 1,
+          "link": "https://claude.ai/new?q=example"
+        }
+      ]
+    }
+  ]
+}

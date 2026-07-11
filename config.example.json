@@ -1,0 +1,35 @@
+{
+  "title": "Backlog Cockpit",
+  "sources": [
+    {
+      "label": "memory",
+      "dir": "~/.claude/projects/YOUR-PROJECT/memory",
+      "glob": "*.md",
+      "include_prefix": ["project_", "event_"],
+      "exclude_prefix": []
+    },
+    {
+      "label": "notes",
+      "dir": "~/notes",
+      "glob": "*.md",
+      "include_prefix": [],
+      "exclude_prefix": ["_"]
+    }
+  ],
+  "goals": [
+    { "id": "work",     "name": "Work",             "icon": "💼", "color": "#a2641b", "match": "work|client|project|bid|proposal" },
+    { "id": "product",  "name": "Build & ship",     "icon": "⛏",       "color": "#4d7488", "match": "app|build|ship|code|product|feature|design" },
+    { "id": "ops",      "name": "Run the business", "icon": "⚙",       "color": "#3f7d4e", "match": "invoice|payroll|ops|admin|billing|hiring|compliance" },
+    { "id": "personal", "name": "Personal",         "icon": "🌱", "color": "#b8801f", "match": "personal|home|health|money|family" },
+    { "id": "other",    "name": "Everything else",  "icon": "📌", "color": "#8b948b", "match": ".*" }
+  ],
+  "redact": {
+    "terms_file": "redact_terms.local.txt",
+    "mask": "█"
+  },
+  "output": {
+    "local":  "./cockpit.local.html",
+    "public": "./public/index.html"
+  },
+  "_notes": "Copy this to config.local.json and point 'sources.dir' at your own note folders. 'goals[].match' is a case-insensitive regex tested against '<project> <filename>' — first match wins, keep a '.*' catch-all last. Marker regexes (what counts as an open thread) have sensible defaults in harvest.py; override the 'markers' object here only if you want to. The PUBLIC build strips numbers, paths, emails, urls, and every line in redact_terms.local.txt (one term per line) — put your client/company names there; that file is gitignored."
+}
