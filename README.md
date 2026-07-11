@@ -2,6 +2,8 @@
 
 **Turn the trail your Claude Code agent leaves behind into a live, prioritized task board.**
 
+🔎 **Live demo (synthetic data):** https://backlog-cockpit-demo.pages.dev
+
 Reference plumbing for Claude Code (and any Markdown-native workflow). As your agent works it
 scatters unfinished threads across memory files and project notes — `NEXT:`, `TODO`, `Deferred`,
 `Parked`, `Not sent`, `Awaiting`, gate/blocker lines. This harvests those lines, **names and ranks
