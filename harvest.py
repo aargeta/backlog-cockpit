@@ -330,7 +330,8 @@ def main():
         p = write_html(cfg, build_dataset(cfg, items, False, lambda s: s), cfg["output"]["local"])
         print(f"  LOCAL  (full detail)  -> {p}")
     if not args.local_only:
-        redact = load_redactor(cfg)
+        # structural mode drops all prose, so the redactor (and its term-list warning) isn't needed
+        redact = (lambda s: s) if cfg["redact"].get("mode") == "structural" else load_redactor(cfg)
         p = write_html(cfg, build_dataset(cfg, items, True, redact), cfg["output"]["public"])
         print(f"  PUBLIC (redacted)     -> {p}")
 
