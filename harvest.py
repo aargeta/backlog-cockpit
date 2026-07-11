@@ -67,12 +67,19 @@ DEFAULTS = {
     },
     "claude": {
         "url": "https://claude.ai/new?q=",
-        "prompt_local": "Open my Obsidian note \"{file}\" (load it via the vault MCP), summarize where it stands, then help me work this open item: {text}",
-        "prompt_public": "Search my vault for the note this belongs to and help me work this open item: {text}",
+        "prompt_local": "Open item from my notes — file \"{file}\", area \"{project}\":\n\n\"{text}\"\n\nIf you can open that note for context (e.g. a vault or Drive connector), do; otherwise ask me for what you need. Then give me the concrete next step.",
+        "prompt_public": "Open item from my backlog (area \"{project}\"):\n\n\"{text}\"\n\nAsk me for the underlying note if you need more context, then give me the concrete next step.",
     },
     "output": {
         "local":  "./cockpit.local.html",
         "public": "./public/index.html",
+    },
+    # optional LLM naming/ranking pass (see llm.py). OFF by default; core tool never needs it.
+    "llm": {
+        "enabled": False,
+        "model": None,               # None = the claude CLI / API default
+        "max_items": 60,             # enrich only the top-N by priority (where naming matters most)
+        "exclude": [],               # regexes; matching items are NEVER sent to the model
     },
     "title": "Backlog Cockpit",
 }
@@ -229,9 +236,9 @@ def load_redactor(cfg):
     return redact
 
 # ------------------------------------------------------------------ build
-def claude_link(cfg, text, path, public):
+def claude_link(cfg, text, path, project, public):
     tmpl = cfg["claude"]["prompt_public" if public else "prompt_local"]
-    prompt = tmpl.format(file=path, text=text)
+    prompt = tmpl.format(file=path, text=text, project=project)
     return cfg["claude"]["url"] + urllib.parse.quote(prompt)
 
 def build_dataset(cfg, items, public, redact):
@@ -256,14 +263,12 @@ def build_dataset(cfg, items, public, redact):
         gd["items"].append({"kind": it["kind"], "text": text, "project": proj,
                             "source": it["source"], "age": it["age"],
                             "priority": it.get("priority", 0), "tier": it.get("tier", "low"),
-                            "link": claude_link(cfg, text if not structural else "an open item", path, public)})
+                            "link": claude_link(cfg, text if not structural else "an open item", path, proj, public)})
     for gd in goals.values():
         # rank by priority (kind weight + staleness), then age
         gd["items"].sort(key=lambda x: (x["priority"], -1 if x["age"] is None else x["age"]), reverse=True)
     order = [g["id"] for g in cfg["goals"]]
     goal_list = [goals[i] for i in order if i in goals]
-    # flat top-priority list (cross-goal) so "what to do next" is one glance
-    flat = sorted(items, key=lambda x: (x.get("priority", 0), -1 if x["age"] is None else x["age"]), reverse=True)
     return {
         "generated": TODAY.isoformat(),
         "title": cfg["title"],
@@ -315,6 +320,12 @@ def main():
             items += harvest_file(path, src.get("label", "notes"), markers)
 
     print(f"config: {os.path.basename(cfg_path)}  |  harvested {len(items)} open threads")
+    if cfg.get("llm", {}).get("enabled"):
+        try:
+            import llm
+            items = llm.enrich(items, cfg)
+        except Exception as e:
+            print(f"llm pass skipped: {e}", file=sys.stderr)
     if not args.public_only:
         p = write_html(cfg, build_dataset(cfg, items, False, lambda s: s), cfg["output"]["local"])
         print(f"  LOCAL  (full detail)  -> {p}")

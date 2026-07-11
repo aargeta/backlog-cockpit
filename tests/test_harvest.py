@@ -186,5 +186,38 @@ class TestConfig(unittest.TestCase):
         self.assertGreater(h.days_old(fm, "/nonexistent"), 9000)
 
 
+class TestLLM(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location("llm", os.path.join(ROOT, "llm.py"))
+        self.llm = importlib.util.module_from_spec(spec); spec.loader.exec_module(self.llm)
+
+    def test_disabled_is_noop(self):
+        items = [{"kind": "todo", "text": "raw line", "priority": 2, "tier": "low"}]
+        self.assertEqual(self.llm.enrich(items, {"llm": {"enabled": False}}), items)
+
+    def test_extract_json_from_prose(self):
+        self.assertEqual(self.llm._extract_json('sure!\n[{"n":0,"name":"x"}]\ndone'), [{"n": 0, "name": "x"}])
+        self.assertIsNone(self.llm._extract_json("no json here"))
+
+    def test_excluded(self):
+        self.assertTrue(self.llm._excluded("touch salary numbers", ["salary"]))
+        self.assertFalse(self.llm._excluded("normal task", ["salary"]))
+
+    def test_enrich_renames_and_reprioritizes(self):
+        items = [{"kind": "next", "text": "Next Action", "priority": 3.0, "tier": "low"},
+                 {"kind": "todo", "text": "touch salary", "priority": 2.0, "tier": "low"}]
+        fake = lambda prompt: '[{"n":0,"name":"Rewrite the export button handler","priority":7}]'
+        out = self.llm.enrich(items, {"llm": {"enabled": True, "exclude": ["salary"]}}, _transport=fake)
+        self.assertEqual(out[0]["text"], "Rewrite the export button handler")
+        self.assertEqual(out[0]["priority"], 7.0)
+        self.assertEqual(out[0]["tier"], "high")
+        self.assertEqual(out[1]["text"], "touch salary")   # excluded item never sent, unchanged
+
+    def test_enrich_fails_soft_on_bad_reply(self):
+        items = [{"kind": "todo", "text": "keep me", "priority": 2, "tier": "low"}]
+        out = self.llm.enrich(items, {"llm": {"enabled": True}}, _transport=lambda p: "garbage, no json")
+        self.assertEqual(out[0]["text"], "keep me")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

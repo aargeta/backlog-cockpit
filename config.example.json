@@ -27,6 +27,12 @@
     "terms_file": "redact_terms.local.txt",
     "mask": "█"
   },
+  "llm": {
+    "enabled": false,
+    "model": null,
+    "max_items": 60,
+    "exclude": ["salary", "confidential"]
+  },
   "output": {
     "local":  "./cockpit.local.html",
     "public": "./public/index.html"

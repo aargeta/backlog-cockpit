@@ -79,6 +79,22 @@ fresh session to work one.** Nothing to hand-maintain.
 The dashboard is a single self-contained HTML file (no server, no deps), so it drops into any
 setup. See `docs/RETHINK.md` for the React frontend + hosting architecture.
 
+## Optional: LLM naming & ranking
+
+The regex harvest is honest but literal — it shows the raw line ("Next Action"). Turn on the
+optional LLM pass and it rewrites the top-priority items into crisp, action-first titles and
+refines their priority from the content:
+
+```json
+"llm": { "enabled": true, "max_items": 60, "exclude": ["salary", "confidential"] }
+```
+
+It runs through the local **`claude` CLI** (Claude Code) if present — **no API key**, and your note
+text stays inside your own authenticated session — or the Anthropic API if `ANTHROPIC_API_KEY` is
+set. It only touches the top `max_items` by priority (where naming matters), **never sends** items
+matching an `exclude` regex, and fails soft (any error → items pass through unchanged). Off by
+default; the core tool never needs it.
+
 ## Configure
 
 Everything specific to you lives in `config.local.json` (gitignored):
