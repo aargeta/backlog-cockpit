@@ -2,27 +2,33 @@
 
 **Turn the trail your Claude Code agent leaves behind into a live, prioritized task board.**
 
+![tests](https://github.com/aargeta/backlog-cockpit/actions/workflows/test.yml/badge.svg)
+
 🔎 **Live demo (synthetic data):** https://backlog-cockpit-demo.pages.dev
 
 Reference plumbing for Claude Code (and any Markdown-native workflow). As your agent works it
 scatters unfinished threads across memory files and project notes — `NEXT:`, `TODO`, `Deferred`,
-`Parked`, `Not sent`, `Awaiting`, gate/blocker lines. This harvests those lines, **names and ranks
-them** (stalest-first, by kind), drops them into one self-contained dashboard, and links each one
-back to a fresh Claude session to actually work it. You never hand-maintain a task list — the
-agent's own working notes *are* the list.
+`Parked`, `Not sent`, `Awaiting`, gate/blocker lines, and unchecked `- [ ]` boxes. This harvests
+them, **names and ranks each by priority** (kind urgency + staleness), drops them into one
+self-contained dashboard, and links each one back to a fresh Claude session to actually work it.
+You never hand-maintain a task list — the agent's own working notes *are* the list.
 
 Fork it, point the config at your `~/.claude` memory and your note folders, run it (or wire it
 into a session hook), and open the dashboard. That's the whole loop.
 
-> It's a line-based heuristic harvest — it catches marker lines, not multiline task trees; treat
-> it as a fast triage surface, not a complete task system.
+> It's a heuristic harvest — a fast, ranked triage surface, not a complete task system.
 
 ## What it does
 
 - Scans the note folders you point it at (Obsidian vault, a `memory/` dir, plain notes — anything Markdown).
-- Pulls open threads using a tuned marker vocabulary (tuned to skip noun false-positives like "signature *block*").
+- Pulls open threads from a tuned marker vocabulary **and Markdown checkboxes** — `- [ ]` is an open
+  task, `- [x]` and `~~struck~~` are closed and skipped. Catches multiline sub-bullets, and skips
+  noun false-positives like "signature *block*".
+- **Ranks by priority** — a score from the kind's urgency (not-sent/gate/decision high; deferred/parked low)
+  plus how stale the thread is — so the top of each list is genuinely what to do next.
 - Classifies each by kind, routes it to a goal bucket you define, dates it from frontmatter (`last_worked:`) or file mtime.
 - Emits **one self-contained `.html`** — no server, no build step, no dependencies. Open it in any browser.
+- Tested: `python -m unittest discover -s tests` (zero-dependency suite, runs in CI).
 
 ## Two builds, one run
 

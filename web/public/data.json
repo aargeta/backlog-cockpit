@@ -13,7 +13,7 @@
     "next": "Next",
     "todo": "To do"
   },
-  "counts": { "not_sent": 2, "decision": 3, "stale": 5 },
+  "counts": { "not_sent": 2, "decision": 3, "stale": 5, "high": 3 },
   "goals": [
     {
       "id": "win",
@@ -27,6 +27,8 @@
           "project": "Sample Bid A",
           "source": "vault-project",
           "age": 12,
+          "priority": 6.4,
+          "tier": "high",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -35,6 +37,8 @@
           "project": "Sample Bid D",
           "source": "vault-project",
           "age": 15,
+          "priority": 7.0,
+          "tier": "high",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -43,6 +47,8 @@
           "project": "Sample Bid C",
           "source": "vault-project",
           "age": 8,
+          "priority": 4.6,
+          "tier": "med",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -51,6 +57,8 @@
           "project": "Sample Bid B",
           "source": "vault-project",
           "age": 4,
+          "priority": 2.8,
+          "tier": "med",
           "link": "https://claude.ai/new?q=example"
         }
       ]
@@ -67,6 +75,8 @@
           "project": "Reporting Engine",
           "source": "vault-project",
           "age": 21,
+          "priority": 5.0,
+          "tier": "med",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -75,6 +85,8 @@
           "project": "Dashboard Rework",
           "source": "notes",
           "age": 11,
+          "priority": 6.2,
+          "tier": "high",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -83,6 +95,8 @@
           "project": "Sync Service",
           "source": "notes",
           "age": 6,
+          "priority": 2.7,
+          "tier": "med",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -91,6 +105,8 @@
           "project": "Dashboard Rework",
           "source": "vault-project",
           "age": 2,
+          "priority": 2.4,
+          "tier": "low",
           "link": "https://claude.ai/new?q=example"
         }
       ]
@@ -107,6 +123,8 @@
           "project": "Lab Ops",
           "source": "notes",
           "age": 9,
+          "priority": 4.8,
+          "tier": "med",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -115,6 +133,8 @@
           "project": "Safety Program",
           "source": "notes",
           "age": 5,
+          "priority": 4.0,
+          "tier": "med",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -123,6 +143,8 @@
           "project": "Lab Ops",
           "source": "vault-project",
           "age": 3,
+          "priority": 2.6,
+          "tier": "med",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -131,6 +153,8 @@
           "project": "Field Team",
           "source": "notes",
           "age": 0,
+          "priority": 1.5,
+          "tier": "low",
           "link": "https://claude.ai/new?q=example"
         }
       ]
@@ -147,6 +171,8 @@
           "project": "Home Projects",
           "source": "notes",
           "age": 30,
+          "priority": 4.5,
+          "tier": "med",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -155,6 +181,8 @@
           "project": "Certifications",
           "source": "notes",
           "age": null,
+          "priority": 2.0,
+          "tier": "low",
           "link": "https://claude.ai/new?q=example"
         },
         {
@@ -163,6 +191,8 @@
           "project": "Development",
           "source": "notes",
           "age": 1,
+          "priority": 2.2,
+          "tier": "low",
           "link": "https://claude.ai/new?q=example"
         }
       ]

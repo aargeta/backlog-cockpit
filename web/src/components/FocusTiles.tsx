@@ -35,12 +35,8 @@ function StatTile({ tile, index }: { tile: Tile; index: number }) {
 export function FocusTiles({ data }: { data: Dataset }) {
   const tiles: Tile[] = [
     { n: data.total, label: 'Open threads', colorVar: 'var(--accent)' },
-    { n: data.counts.not_sent, label: 'Not sent', colorVar: 'var(--block)' },
-    {
-      n: data.counts.decision,
-      label: 'Awaiting your decision',
-      colorVar: 'var(--wait)',
-    },
+    { n: data.counts.high, label: 'High priority', colorVar: 'var(--block)' },
+    { n: data.counts.not_sent, label: 'Not sent', colorVar: 'var(--wait)' },
     { n: data.counts.stale, label: 'Stale > 10 days', colorVar: 'var(--todo)' },
   ]
   return (

@@ -61,7 +61,7 @@ DEFAULTS = {
             r"\b[\w.+-]+@[\w.-]+\.\w+\b",                      # emails
             r"https?://\S+",                                  # urls
         ],
-        "mode": "denylist",   # "denylist" = mask patterns+terms (NOT a guarantee). "structural" = drop free text entirely (provably safe).
+        "mode": "structural",   # DEFAULT: provably safe (no prose in the public build). Set "denylist" (masks patterns+terms — NOT a guarantee) only behind an identity gate.
         "terms_file": "redact_terms.local.txt",  # one term per line; kept out of git
         "mask": "█",                          # replacement glyph
     },
@@ -86,7 +86,8 @@ def deep_merge(base, over):
 def load_config(path):
     cfg = DEFAULTS
     if path and os.path.exists(path):
-        cfg = deep_merge(DEFAULTS, json.load(open(path, encoding="utf-8")))
+        with open(path, encoding="utf-8") as f:
+            cfg = deep_merge(DEFAULTS, json.load(f))
     if not cfg.get("goals"):
         raise SystemExit("config error: 'goals' must be a non-empty list (keep a '.*' catch-all last).")
     if not cfg.get("sources"):
@@ -100,6 +101,19 @@ def xpath(p):
 DONE = re.compile(r"(?i)\b(done|complete[d]?|committed|executed|shipped|resolved|delivered)\b|✅|✓")
 # Only unambiguously-still-open words, so "Next: X — DONE" is excludable (not kept forever).
 FORWARD = re.compile(r"(?i)\b(not sent|unsent|awaiting|waiting on|blocked|on hold|pending|deferred|parked)\b")
+CHECK_OPEN = re.compile(r"^\s*[-*+]\s*\[\s\]\s+")     # "- [ ] " unchecked task (open, first-class)
+CHECK_DONE = re.compile(r"^\s*[-*+]\s*\[[xX]\]")      # "- [x]" checked task (done -> skip)
+STRIKE = re.compile(r"~~.+~~")                          # ~~struck~~ (done -> skip)
+HEADING = re.compile(r"^\s*#{1,6}\s")
+
+# Priority = how much a kind demands attention, before staleness is layered on.
+KIND_PRIORITY = {"not_sent": 5, "gate": 5, "decision": 4, "awaiting": 3, "next": 3, "todo": 2, "deferred": 1, "parked": 1}
+def score(kind, age):
+    base = KIND_PRIORITY.get(kind, 2)
+    stale = min((age or 0) / 7.0, 5.0)     # up to +5 as a thread ages toward ~5 weeks
+    return round(base + stale, 1)
+def tier(s):
+    return "high" if s >= 6 else "med" if s >= 3.5 else "low"
 
 def compile_markers(cfg):
     return [(k, re.compile(cfg["markers"][k])) for k in cfg["kind_order"] if k in cfg["markers"]]
@@ -130,9 +144,10 @@ def days_old(fm, path):
         return None
 
 def clean(line):
-    s = re.sub(r"^[\s>*\-•#\d.]+", "", line).strip()
+    s = re.sub(r"^[\s>*\-+•#\d.]+", "", line).strip()
+    s = re.sub(r"^\[[ xX]\]\s*", "", s)          # strip a leading checkbox marker
     s = re.sub(r"[*_`]{1,2}", "", s)
-    return re.sub(r"\s+", " ", s)[:200]
+    return re.sub(r"\s+", " ", s)[:220]
 
 def classify(line, markers):
     for kind, rx in markers:
@@ -140,31 +155,50 @@ def classify(line, markers):
             return kind
     return None
 
+def indent(raw):
+    return len(raw) - len(raw.lstrip())
+
 def harvest_file(path, label, markers):
     try:
-        txt = open(path, encoding="utf-8", errors="ignore").read()
+        with open(path, encoding="utf-8", errors="ignore") as f:
+            txt = f.read()
     except OSError:
         return []
     fm = parse_frontmatter(txt)
     proj = fm.get("name") or os.path.splitext(os.path.basename(path))[0]
     proj = re.sub(r"^(project|reference|feedback|event|user)[_\-]", "", proj).replace("_", " ").strip()
     age = days_old(fm, path)
-    out, seen = [], set()
-    for raw in txt.splitlines():
-        line = raw.strip()
-        if not (6 <= len(line) <= 400):
+    lines = txt.splitlines()
+    out, seen, i, n = [], set(), 0, len(lines)
+    while i < n:
+        raw = lines[i]; line = raw.strip(); i += 1
+        if not line or HEADING.match(raw):
             continue
-        kind = classify(line, markers)
+        if CHECK_DONE.match(raw) or STRIKE.search(line):     # explicitly-closed items — skip
+            continue
+        checkbox = bool(CHECK_OPEN.match(raw))
+        kind = classify(line, markers) or ("todo" if checkbox else None)
         if not kind:
             continue
-        if DONE.search(line) and not FORWARD.search(line):
+        # prose "DONE" only excludes non-checkbox marker lines with no still-open word
+        if not checkbox and DONE.search(line) and not FORWARD.search(line):
             continue
-        c = clean(line)
-        if len(c) < 6 or c.lower()[:80] in seen:
+        # capture up to 2 deeper-indented continuation lines (multiline sub-bullets/detail)
+        block, base, taken = [line], indent(raw), 0
+        while i < n and taken < 2:
+            nxt = lines[i]; nstr = nxt.strip()
+            if (not nstr or HEADING.match(nxt) or indent(nxt) <= base
+                    or CHECK_OPEN.match(nxt) or CHECK_DONE.match(nxt) or classify(nstr, markers)):
+                break
+            block.append(nstr); i += 1; taken += 1
+        c = clean(" ".join(block))
+        key = c.lower()[:80]
+        if len(c) < 6 or key in seen:
             continue
-        seen.add(c.lower()[:80])
-        out.append({"kind": kind, "text": c, "project": proj, "source": label,
-                    "file": os.path.basename(path), "path": path, "age": age})
+        seen.add(key)
+        out.append({"kind": kind, "text": c, "checkbox": checkbox, "project": proj, "source": label,
+                    "file": os.path.basename(path), "path": path, "age": age,
+                    "priority": score(kind, age), "tier": tier(score(kind, age))})
     return out
 
 def route(cfg, key):
@@ -179,7 +213,8 @@ def load_redactor(cfg):
     tf = cfg["redact"].get("terms_file")
     tf_path = tf if tf and os.path.isabs(tf) else os.path.join(HERE, tf or "")
     if tf and os.path.exists(tf_path):
-        terms = [t.strip() for t in open(tf_path, encoding="utf-8") if t.strip() and not t.startswith("#")]
+        with open(tf_path, encoding="utf-8") as f:
+            terms = [t.strip() for t in f if t.strip() and not t.startswith("#")]
         if terms:
             pats.append(re.compile("|".join(re.escape(t) for t in sorted(terms, key=len, reverse=True)), re.I))
         else:
@@ -220,11 +255,15 @@ def build_dataset(cfg, items, public, redact):
             path = "" if public else os.path.basename(it["path"])
         gd["items"].append({"kind": it["kind"], "text": text, "project": proj,
                             "source": it["source"], "age": it["age"],
+                            "priority": it.get("priority", 0), "tier": it.get("tier", "low"),
                             "link": claude_link(cfg, text if not structural else "an open item", path, public)})
     for gd in goals.values():
-        gd["items"].sort(key=lambda x: (-1 if x["age"] is None else x["age"]), reverse=True)
+        # rank by priority (kind weight + staleness), then age
+        gd["items"].sort(key=lambda x: (x["priority"], -1 if x["age"] is None else x["age"]), reverse=True)
     order = [g["id"] for g in cfg["goals"]]
     goal_list = [goals[i] for i in order if i in goals]
+    # flat top-priority list (cross-goal) so "what to do next" is one glance
+    flat = sorted(items, key=lambda x: (x.get("priority", 0), -1 if x["age"] is None else x["age"]), reverse=True)
     return {
         "generated": TODAY.isoformat(),
         "title": cfg["title"],
@@ -235,6 +274,7 @@ def build_dataset(cfg, items, public, redact):
         "counts": {
             "not_sent": sum(1 for i in items if i["kind"] == "not_sent"),
             "decision": sum(1 for i in items if i["kind"] == "decision"),
+            "high": sum(1 for i in items if i.get("tier") == "high"),
             "stale": sum(1 for i in items if i["age"] is not None and i["age"] > 10),
         },
     }
@@ -246,7 +286,8 @@ def write_html(cfg, data, out_path):
     # These only appear inside JSON string values; \u00xx round-trips identically in JS/JSON.
     payload = (json.dumps(data, ensure_ascii=True)
                .replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026"))
-    open(out_path, "w", encoding="utf-8").write(TEMPLATE.replace("/*DATA*/", payload))
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(TEMPLATE.replace("/*DATA*/", payload))
     return out_path
 
 def main():
@@ -312,7 +353,8 @@ h1{margin:0;font-weight:680;letter-spacing:-.01em}a{color:inherit}button{font-fa
 .gttl h3{font-size:1.02rem;margin:0}.gcount{font-family:var(--fmono);font-size:.8rem;color:var(--ink-soft)}
 .chev{color:var(--ink-faint);transition:transform .2s;font-size:.8rem}.goal.collapsed .chev{transform:rotate(-90deg)}.goal.collapsed .items{display:none}
 .items{border-top:1px solid var(--line-soft)}
-.it{display:grid;grid-template-columns:auto 1fr auto auto;gap:11px;align-items:start;padding:10px 17px;border-bottom:1px solid var(--line-soft)}.it:last-child{border-bottom:0}.it:hover{background:var(--surface-2)}
+.it{display:grid;grid-template-columns:auto auto 1fr auto auto;gap:11px;align-items:start;padding:10px 17px;border-bottom:1px solid var(--line-soft)}.it:last-child{border-bottom:0}.it:hover{background:var(--surface-2)}
+.tdot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none;background:var(--todo)}.tdot.t-high{background:var(--block);box-shadow:0 0 0 3px color-mix(in srgb,var(--block) 22%,transparent)}.tdot.t-med{background:var(--wait)}.tdot.t-low{background:var(--line)}
 .pill{font-family:var(--fmono);font-size:.6rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:3px 7px;border-radius:20px;white-space:nowrap;min-width:74px;text-align:center;margin-top:1px}
 .pill[data-k=not_sent],.pill[data-k=gate]{color:var(--block);background:color-mix(in srgb,var(--block) 13%,transparent)}
 .pill[data-k=decision]{color:var(--wait);background:color-mix(in srgb,var(--wait) 15%,transparent)}
@@ -340,7 +382,7 @@ $("ttl").textContent=D.title;$("stamp").textContent="· "+D.total+" open · "+D.
 $("mode").textContent=D.mode;$("mode").className="mode "+D.mode;
 $("sub").textContent=D.mode==="public"?"Redacted view — safe to share. Full detail lives on your machine.":"Harvested from your notes. Stalest first. Nothing left this machine.";
 $("foot").textContent=D.mode==="public"?"Redacted build · numbers, paths, emails & your term list stripped.":"Local build · full detail · never published.";
-function tiles(){return[{n:D.total,k:"Open threads",c:"var(--accent)"},{n:D.counts.not_sent,k:"Not sent",c:"var(--block)"},{n:D.counts.decision,k:"Awaiting your decision",c:"var(--wait)"},{n:D.counts.stale,k:"Stale &gt; 10 days",c:"var(--todo)"}]}
+function tiles(){return[{n:D.total,k:"Open threads",c:"var(--accent)"},{n:(D.counts.high||0),k:"High priority",c:"var(--block)"},{n:D.counts.not_sent,k:"Not sent",c:"var(--wait)"},{n:D.counts.stale,k:"Stale &gt; 10 days",c:"var(--todo)"}]}
 function esc(s){return(s+"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function ageTxt(a){return a===null?"—":a===0?"today":a+"d"}
 function renderFocus(){$("focus").innerHTML=tiles().map(t=>`<div class="ftile" style="--c:${t.c}"><div class="n">${t.n}</div><div class="k">${t.k}</div></div>`).join("")}
@@ -349,7 +391,7 @@ function renderFilters(){const ks=Object.keys(L);$("filters").innerHTML=`<button
 function show(it){if(kf&&it.kind!==kf)return false;if(stale&&!(it.age!==null&&it.age>10))return false;return true}
 function renderGoals(){const g=$("goals");g.innerHTML="";D.goals.forEach(goal=>{const items=goal.items.filter(show);if(!items.length)return;
  const c=document.createElement("div");c.className="goal";c.style.setProperty("--gc",goal.color);
- c.innerHTML=`<div class="ghead"><div class="gicon" style="--gc:${goal.color}">${goal.icon}</div><div><h3>${esc(goal.name)}</h3></div><div style="display:flex;gap:12px;align-items:center"><span class="gcount">${items.length}</span><span class="chev">▼</span></div></div><div class="items">${items.map(it=>`<div class="it"><span class="pill" data-k="${it.kind}">${L[it.kind]}</span><div class="itx">${esc(it.text)}<div class="meta">${esc(it.project)} · ${it.source}</div></div><span class="age ${it.age!==null&&it.age>10?'hot':''}">${ageTxt(it.age)}</span><a class="go" href="${esc(it.link)}" target="_blank" rel="noopener" title="Open in Claude">↗</a></div>`).join("")}</div>`;
+ c.innerHTML=`<div class="ghead"><div class="gicon" style="--gc:${goal.color}">${goal.icon}</div><div><h3>${esc(goal.name)}</h3></div><div style="display:flex;gap:12px;align-items:center"><span class="gcount">${items.length}</span><span class="chev">▼</span></div></div><div class="items">${items.map(it=>`<div class="it"><span class="tdot t-${it.tier||'low'}" title="priority ${it.priority||''}"></span><span class="pill" data-k="${it.kind}">${L[it.kind]}</span><div class="itx">${esc(it.text)}<div class="meta">${esc(it.project)} · ${it.source}</div></div><span class="age ${it.age!==null&&it.age>10?'hot':''}">${ageTxt(it.age)}</span><a class="go" href="${esc(it.link)}" target="_blank" rel="noopener" title="Open in Claude">↗</a></div>`).join("")}</div>`;
  c.querySelector(".ghead").onclick=()=>c.classList.toggle("collapsed");g.appendChild(c)});
  if(!g.children.length)g.innerHTML=`<div class="hint">Nothing matches this filter.</div>`}
 function render(){renderFocus();renderFilters();renderGoals()}

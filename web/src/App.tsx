@@ -36,7 +36,12 @@ export default function App() {
     return data.goals
       .map((g) => ({
         goal: g,
-        items: g.items.filter((it) => matches(it, kindFilter, staleOnly)),
+        items: g.items
+          .filter((it) => matches(it, kindFilter, staleOnly))
+          .sort(
+            (a, b) =>
+              b.priority - a.priority || (b.age ?? -1) - (a.age ?? -1),
+          ),
       }))
       .filter((g) => g.items.length > 0)
   }, [data, kindFilter, staleOnly])
@@ -97,7 +102,7 @@ export default function App() {
         />
 
         <p className="mb-3 font-mono text-[0.7rem] uppercase tracking-[0.13em] text-ink-faint">
-          By goal · oldest threads on top
+          By goal · highest priority on top
         </p>
 
         <LayoutGroup>

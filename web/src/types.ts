@@ -8,12 +8,16 @@ export type Kind =
   | 'next'
   | 'todo'
 
+export type Tier = 'high' | 'med' | 'low'
+
 export interface Item {
   kind: Kind
   text: string
   project: string
   source: string
   age: number | null
+  priority: number
+  tier: Tier
   link: string
 }
 
@@ -31,7 +35,7 @@ export interface Dataset {
   mode: 'public' | 'local'
   total: number
   labels: Record<Kind, string>
-  counts: { not_sent: number; decision: number; stale: number }
+  counts: { not_sent: number; decision: number; stale: number; high: number }
   goals: Goal[]
 }
 
@@ -45,6 +49,13 @@ export function ageText(age: number | null): string {
   if (age === null) return '—'
   if (age === 0) return 'today'
   return `${age}d`
+}
+
+/** CSS var name per priority tier — drives the tier dot on each row. */
+export const TIER_COLOR: Record<Tier, 'block' | 'wait' | 'line'> = {
+  high: 'block',
+  med: 'wait',
+  low: 'line',
 }
 
 /** Status color bucket per kind — mirrors the original template's pill CSS. */

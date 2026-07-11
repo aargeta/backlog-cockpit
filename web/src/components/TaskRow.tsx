@@ -1,5 +1,12 @@
 import { motion } from 'framer-motion'
-import { KIND_COLOR, ageText, isStale, type Item, type Kind } from '../types'
+import {
+  KIND_COLOR,
+  TIER_COLOR,
+  ageText,
+  isStale,
+  type Item,
+  type Kind,
+} from '../types'
 
 interface Props {
   item: Item
@@ -8,6 +15,7 @@ interface Props {
 
 export function TaskRow({ item, labels }: Props) {
   const c = KIND_COLOR[item.kind]
+  const t = TIER_COLOR[item.tier]
   const stale = isStale(item.age)
 
   return (
@@ -17,8 +25,22 @@ export function TaskRow({ item, labels }: Props) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
-      className="grid grid-cols-[auto_1fr_auto_auto] items-start gap-[11px] border-b border-line-soft px-[17px] py-2.5 transition-colors last:border-b-0 hover:bg-surface-2"
+      className="grid grid-cols-[auto_auto_1fr_auto_auto] items-start gap-[11px] border-b border-line-soft px-[17px] py-2.5 transition-colors last:border-b-0 hover:bg-surface-2"
     >
+      <span className="mt-[7px] grid place-items-center">
+        <span
+          aria-hidden
+          className="size-2 rounded-full"
+          style={{
+            background: `var(--${t})`,
+            boxShadow:
+              item.tier === 'high'
+                ? '0 0 0 3px color-mix(in srgb, var(--block) 22%, transparent)'
+                : undefined,
+          }}
+        />
+        <span className="sr-only">{item.tier} priority</span>
+      </span>
       <span
         className="mt-px min-w-[74px] whitespace-nowrap rounded-full px-[7px] py-[3px] text-center font-mono text-[0.6rem] font-bold uppercase tracking-[0.03em]"
         style={{
