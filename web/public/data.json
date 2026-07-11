@@ -13,7 +13,12 @@
     "next": "Next",
     "todo": "To do"
   },
-  "counts": { "not_sent": 2, "decision": 3, "stale": 5, "high": 3 },
+  "counts": {
+    "not_sent": 2,
+    "decision": 3,
+    "stale": 5,
+    "high": 3
+  },
   "goals": [
     {
       "id": "win",
@@ -29,7 +34,7 @@
           "age": 12,
           "priority": 6.4,
           "tier": "high",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Win%20work%22%29%3A%0A%0A%22Draft%20proposal%20ready%2C%20needs%20final%20review%20before%20send%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "gate",
@@ -39,7 +44,7 @@
           "age": 15,
           "priority": 7.0,
           "tier": "high",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Win%20work%22%29%3A%0A%0A%22Blocked%20until%20the%20owner%20signs%20the%20site%20access%20agreement%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "decision",
@@ -49,7 +54,7 @@
           "age": 8,
           "priority": 4.6,
           "tier": "med",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Win%20work%22%29%3A%0A%0A%22Pick%20unit-rate%20vs%20lump-sum%20structure%20before%20pricing%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "awaiting",
@@ -59,7 +64,7 @@
           "age": 4,
           "priority": 2.8,
           "tier": "med",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Win%20work%22%29%3A%0A%0A%22Waiting%20on%20GC%20schedule%20to%20price%20the%20scope%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         }
       ]
     },
@@ -77,7 +82,7 @@
           "age": 21,
           "priority": 5.0,
           "tier": "med",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Build%20%26%20ship%22%29%3A%0A%0A%22Migrate%20legacy%20reports%20once%20the%20new%20schema%20lands%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "not_sent",
@@ -87,7 +92,7 @@
           "age": 11,
           "priority": 6.2,
           "tier": "high",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Build%20%26%20ship%22%29%3A%0A%0A%22Release%20notes%20drafted%20for%20v2.1%2C%20still%20unpublished%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "todo",
@@ -97,7 +102,7 @@
           "age": 6,
           "priority": 2.7,
           "tier": "med",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Build%20%26%20ship%22%29%3A%0A%0A%22Add%20retry%20logic%20to%20the%20nightly%20sync%20job%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "next",
@@ -107,7 +112,7 @@
           "age": 2,
           "priority": 2.4,
           "tier": "low",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Build%20%26%20ship%22%29%3A%0A%0A%22Wire%20the%20export%20button%20to%20the%20new%20CSV%20endpoint%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         }
       ]
     },
@@ -125,7 +130,7 @@
           "age": 9,
           "priority": 4.8,
           "tier": "med",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Run%20the%20firm%22%29%3A%0A%0A%22Approve%20the%20revised%20equipment%20calibration%20budget%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "decision",
@@ -135,7 +140,7 @@
           "age": 5,
           "priority": 4.0,
           "tier": "med",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Run%20the%20firm%22%29%3A%0A%0A%22Choose%20a%20date%20for%20the%20quarterly%20safety%20review%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "awaiting",
@@ -145,7 +150,7 @@
           "age": 3,
           "priority": 2.6,
           "tier": "med",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Run%20the%20firm%22%29%3A%0A%0A%22Vendor%20quote%20pending%20for%20the%20second%20density%20gauge%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "todo",
@@ -155,7 +160,7 @@
           "age": 0,
           "priority": 1.5,
           "tier": "low",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Run%20the%20firm%22%29%3A%0A%0A%22Update%20the%20onboarding%20checklist%20for%20new%20field%20techs%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         }
       ]
     },
@@ -173,7 +178,7 @@
           "age": 30,
           "priority": 4.5,
           "tier": "med",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Personal%22%29%3A%0A%0A%22Sketch%20the%20garden%20irrigation%20layout%20for%20the%20back%20lot%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "awaiting",
@@ -183,7 +188,7 @@
           "age": null,
           "priority": 2.0,
           "tier": "low",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Personal%22%29%3A%0A%0A%22Waiting%20on%20license%20renewal%20confirmation%20letter%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         },
         {
           "kind": "next",
@@ -193,7 +198,7 @@
           "age": 1,
           "priority": 2.2,
           "tier": "low",
-          "link": "https://claude.ai/new?q=example"
+          "link": "https://claude.ai/new?q=Open%20item%20from%20my%20backlog%20%28area%20%22Personal%22%29%3A%0A%0A%22Book%20travel%20for%20the%20fall%20industry%20conference%22%0A%0AAsk%20me%20for%20the%20underlying%20note%20if%20you%20need%20more%20context%2C%20then%20give%20me%20the%20concrete%20next%20step."
         }
       ]
     }
