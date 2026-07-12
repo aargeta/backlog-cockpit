@@ -65,9 +65,9 @@ export function TaskRow({ item, labels }: Props) {
       </span>
       <a
         href={item.link}
-        target="_blank"
+        target="bc-work"
         rel="noopener noreferrer"
-        title="Open in Claude"
+        title="Open in Claude (reuses one tab)"
         aria-label={`Open "${item.text}" in Claude`}
         className="grid h-7 w-[30px] place-items-center rounded-lg border border-line bg-surface text-[0.9rem] text-ink-soft no-underline transition-colors hover:border-accent hover:text-accent"
       >
