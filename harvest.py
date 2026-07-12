@@ -317,7 +317,13 @@ def main():
     items = []
     for src in cfg["sources"]:
         d = xpath(src["dir"])
-        for path in sorted(glob.glob(os.path.join(d, src.get("glob", "*.md")))):
+        if not os.path.isdir(d):     # fail loud, not a silent undercount (e.g. the notes folder moved)
+            print(f"WARNING: source dir not found — '{src['dir']}' (resolved: {d}). 0 items from it; "
+                  f"did the folder move or get renamed?", file=sys.stderr)
+            continue
+        matched = sorted(glob.glob(os.path.join(d, src.get("glob", "*.md"))))
+        before = len(items)
+        for path in matched:
             base = os.path.basename(path)
             inc, exc = src.get("include_prefix"), src.get("exclude_prefix", [])
             if inc and not any(base.startswith(p) for p in inc):
@@ -325,6 +331,8 @@ def main():
             if any(base.startswith(p) for p in exc):
                 continue
             items += harvest_file(path, src.get("label", "notes"), markers)
+        if not matched:
+            print(f"WARNING: source '{src['dir']}' exists but matched 0 files (glob '{src.get('glob','*.md')}').", file=sys.stderr)
 
     print(f"config: {os.path.basename(cfg_path)}  |  harvested {len(items)} open threads")
     if cfg.get("llm", {}).get("enabled") and not args.no_llm:
