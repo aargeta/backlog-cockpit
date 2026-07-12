@@ -13,3 +13,6 @@ public/index.html
 __pycache__/
 *.pyc
 .DS_Store
+.wrangler/
+node_modules/
+dist/
