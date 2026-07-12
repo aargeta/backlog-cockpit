@@ -79,6 +79,28 @@ fresh session to work one.** Nothing to hand-maintain.
 The dashboard is a single self-contained HTML file (no server, no deps), so it drops into any
 setup. See `docs/RETHINK.md` for the React frontend + hosting architecture.
 
+### Automate it (every session)
+
+Wire it into a Claude Code **`SessionStart` hook** so every session opens with your current backlog
+already in context — no command to run. In `~/.claude/settings.json`:
+
+```json
+"hooks": {
+  "SessionStart": [
+    { "matcher": "", "hooks": [ { "type": "command",
+      "command": "python /path/to/backlog-cockpit/harvest.py --brief 6 --no-llm" } ] }
+  ]
+}
+```
+
+`--brief N` prints the top-N priority threads (plus a one-line triage nudge) to stdout, which the
+hook feeds into the session; `--no-llm` keeps it fast (~0.5s) and avoids a nested model call. Now the
+session model sees your top open threads at startup and can reason about what to tackle first —
+automatically. (On Windows, point the command at your `python.exe` by full path.)
+
+For an on-demand version, add a `/backlog` slash command (`~/.claude/commands/backlog.md`) that runs
+the same `--brief` and asks the model for a reasoned triage.
+
 ## Optional: LLM naming & ranking
 
 The regex harvest is honest but literal — it shows the raw line ("Next Action"). Turn on the
