@@ -81,6 +81,9 @@ DEFAULTS = {
         "max_items": 60,             # enrich only the top-N by priority (where naming matters most)
         "exclude": [],               # regexes; matching items are NEVER sent to the model
     },
+    # when a source dir is missing, search its nearest existing ancestor for a folder of the same
+    # name (a moved/renamed folder) and auto-repair — writes the fix back to your config file.
+    "self_heal": True,
     "title": "Backlog Cockpit",
 }
 
@@ -103,6 +106,55 @@ def load_config(path):
 
 def xpath(p):
     return os.path.expanduser(p)
+
+# ------------------------------------------------------------------ self-heal (moved source dirs)
+def find_moved_dir(missing, max_depth=6):
+    """A source dir vanished — search its deepest EXISTING ancestor for a folder of the same
+    basename (the classic 'I reorganized my vault' case). Return the path only if exactly one
+    match is found (unambiguous), else None. Bounded search depth so it can't run away."""
+    missing = os.path.normpath(missing)
+    target = os.path.basename(missing.rstrip("/\\"))
+    if not target:
+        return None
+    anc = os.path.dirname(missing)
+    while anc and not os.path.isdir(anc):          # climb to the nearest ancestor that still exists
+        parent = os.path.dirname(anc)
+        if parent == anc:
+            return None
+        anc = parent
+    if not os.path.isdir(anc):
+        return None
+    base = anc.rstrip("/\\").count(os.sep)
+    matches = []
+    for root, dirs, _ in os.walk(anc):
+        if root.count(os.sep) - base >= max_depth:
+            dirs[:] = []
+            continue
+        if target in dirs:
+            matches.append(os.path.join(root, target))
+    return matches[0] if len(matches) == 1 else None
+
+def to_config_path(p):
+    """Absolute path -> the tilde/forward-slash form used in configs (nicer to persist)."""
+    home = os.path.expanduser("~")
+    if p.startswith(home):
+        p = "~" + p[len(home):]
+    return p.replace("\\", "/")
+
+def persist_source_fix(cfg_path, old_value, healed_abs):
+    """Surgically rewrite the moved source path in the config file (preserves formatting)."""
+    if not cfg_path or not os.path.exists(cfg_path):
+        return
+    new_value = to_config_path(healed_abs)
+    try:
+        with open(cfg_path, encoding="utf-8") as f:
+            txt = f.read()
+        if '"' + old_value + '"' in txt:
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                f.write(txt.replace('"' + old_value + '"', '"' + new_value + '"', 1))
+            print(f"self-heal: updated {os.path.basename(cfg_path)} — source path -> {new_value}", file=sys.stderr)
+    except OSError:
+        pass
 
 # ------------------------------------------------------------------ harvest
 DONE = re.compile(r"(?i)\b(done|complete[d]?|committed|executed|shipped|resolved|delivered)\b|✅|✓")
@@ -317,10 +369,16 @@ def main():
     items = []
     for src in cfg["sources"]:
         d = xpath(src["dir"])
-        if not os.path.isdir(d):     # fail loud, not a silent undercount (e.g. the notes folder moved)
-            print(f"WARNING: source dir not found — '{src['dir']}' (resolved: {d}). 0 items from it; "
-                  f"did the folder move or get renamed?", file=sys.stderr)
-            continue
+        if not os.path.isdir(d):
+            healed = find_moved_dir(d) if cfg.get("self_heal", True) else None
+            if healed:                # the folder moved (e.g. a vault reorg) — repair automatically
+                print(f"self-heal: '{src['dir']}' not found -> found moved folder at '{healed}'", file=sys.stderr)
+                persist_source_fix(cfg_path, src["dir"], healed)
+                d = healed
+            else:                     # fail loud, not a silent undercount
+                print(f"WARNING: source dir not found — '{src['dir']}' (resolved: {d}). 0 items from it; "
+                      f"did the folder move, get renamed, or split into multiple copies?", file=sys.stderr)
+                continue
         matched = sorted(glob.glob(os.path.join(d, src.get("glob", "*.md"))))
         before = len(items)
         for path in matched:

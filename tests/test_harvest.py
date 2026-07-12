@@ -219,5 +219,36 @@ class TestLLM(unittest.TestCase):
         self.assertEqual(out[0]["text"], "keep me")
 
 
+class TestSelfHeal(unittest.TestCase):
+    def test_finds_uniquely_moved_folder(self):
+        root = tempfile.mkdtemp()
+        moved = os.path.join(root, "new-area", "my-notes"); os.makedirs(moved)
+        missing = os.path.join(root, "old-area", "my-notes")   # gone; nearest existing ancestor is root
+        self.assertEqual(os.path.normpath(h.find_moved_dir(missing)), os.path.normpath(moved))
+
+    def test_ambiguous_match_returns_none(self):
+        root = tempfile.mkdtemp()
+        os.makedirs(os.path.join(root, "a", "dup")); os.makedirs(os.path.join(root, "b", "dup"))
+        self.assertIsNone(h.find_moved_dir(os.path.join(root, "gone", "dup")))   # 2 matches -> refuse to guess
+
+    def test_no_match_returns_none(self):
+        root = tempfile.mkdtemp()
+        self.assertIsNone(h.find_moved_dir(os.path.join(root, "gone", "nothing-like-this")))
+
+    def test_to_config_path_tildes_home(self):
+        p = h.to_config_path(os.path.join(os.path.expanduser("~"), "x", "y"))
+        self.assertTrue(p.startswith("~/"))
+        self.assertNotIn("\\", p)
+
+    def test_persist_rewrites_config_surgically(self):
+        d = tempfile.mkdtemp(); cfgp = os.path.join(d, "c.json")
+        with open(cfgp, "w", encoding="utf-8") as f:
+            f.write('{\n  "sources": [ { "dir": "~/old/place" } ]\n}\n')
+        h.persist_source_fix(cfgp, "~/old/place", os.path.join(os.path.expanduser("~"), "new", "place"))
+        txt = open(cfgp, encoding="utf-8").read()
+        self.assertIn("~/new/place", txt)
+        self.assertNotIn("~/old/place", txt)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

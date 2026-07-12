@@ -28,6 +28,9 @@ into a session hook), and open the dashboard. That's the whole loop.
   plus how stale the thread is — so the top of each list is genuinely what to do next.
 - Classifies each by kind, routes it to a goal bucket you define, dates it from frontmatter (`last_worked:`) or file mtime.
 - Emits **one self-contained `.html`** — no server, no build step, no dependencies. Open it in any browser.
+- **Self-healing paths** — if you reorganize your notes and a source folder moves, it finds the
+  folder by name under the nearest existing parent and rewrites your config automatically (only when
+  the match is unambiguous; otherwise it warns). Set `"self_heal": false` to opt out.
 - Tested: `python -m unittest discover -s tests` (zero-dependency suite, runs in CI).
 
 ## Two builds, one run
