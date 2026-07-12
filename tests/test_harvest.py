@@ -13,8 +13,17 @@ MK = h.compile_markers(h.DEFAULTS)
 
 def harvest_text(text, label="notes"):
     p = os.path.join(tempfile.gettempdir(), "bc_test_note.md")
-    open(p, "w", encoding="utf-8").write(text)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(text)
     return h.harvest_file(p, label, MK)
+
+def read(p):
+    with open(p, encoding="utf-8") as f:
+        return f.read()
+
+def write(p, s):
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(s)
 
 
 class TestClassify(unittest.TestCase):
@@ -264,23 +273,23 @@ class TestSelfHeal(unittest.TestCase):
 
     def test_persist_rewrites_forward_slash_config(self):
         d = tempfile.mkdtemp(); cfgp = os.path.join(d, "config.local.json")
-        open(cfgp, "w", encoding="utf-8").write('{ "sources": [ { "dir": "~/old/place" } ] }')
+        write(cfgp,'{ "sources": [ { "dir": "~/old/place" } ] }')
         h.persist_source_fix(cfgp, "~/old/place", os.path.join(os.path.expanduser("~"), "new", "place"))
-        txt = open(cfgp, encoding="utf-8").read()
+        txt = read(cfgp)
         self.assertIn("~/new/place", txt); self.assertNotIn("~/old/place", txt)
 
     def test_persist_rewrites_backslash_config(self):        # the silent-no-op bug
         d = tempfile.mkdtemp(); cfgp = os.path.join(d, "config.local.json")
         raw = json.dumps({"sources": [{"dir": "C:\\Users\\me\\old"}]})   # escaped backslashes on disk
-        open(cfgp, "w", encoding="utf-8").write(raw)
+        write(cfgp,raw)
         h.persist_source_fix(cfgp, "C:\\Users\\me\\old", "D:\\notes\\new")
-        self.assertNotIn("me\\\\old", open(cfgp, encoding="utf-8").read())
+        self.assertNotIn("me\\\\old", read(cfgp))
 
     def test_persist_never_touches_example_config(self):
         d = tempfile.mkdtemp(); cfgp = os.path.join(d, "config.example.json")
-        open(cfgp, "w", encoding="utf-8").write('{ "sources": [ { "dir": "~/old" } ] }')
+        write(cfgp,'{ "sources": [ { "dir": "~/old" } ] }')
         h.persist_source_fix(cfgp, "~/old", os.path.join(os.path.expanduser("~"), "new"))
-        self.assertIn("~/old", open(cfgp, encoding="utf-8").read())     # unchanged
+        self.assertIn("~/old", read(cfgp))     # unchanged
 
 
 class TestBugFixes(unittest.TestCase):
@@ -313,6 +322,12 @@ class TestBugFixes(unittest.TestCase):
         names = {os.path.basename(p) for p in found}
         self.assertIn("nested.md", names); self.assertIn("top.md", names)
         self.assertTrue(all("node_modules" not in p for p in found))
+
+    def test_tier_parity_harvest_vs_llm(self):        # the duplicated tier() must not drift
+        spec = importlib.util.spec_from_file_location("llm", os.path.join(ROOT, "llm.py"))
+        llm = importlib.util.module_from_spec(spec); spec.loader.exec_module(llm)
+        for s in [0, 3.4, 3.5, 5.9, 6.0, 7.0, 10.0]:
+            self.assertEqual(h.tier(s), llm._tier(s), f"tier drift at {s}")
 
 
 if __name__ == "__main__":
