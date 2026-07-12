@@ -296,10 +296,17 @@ def write_html(cfg, data, out_path):
     return out_path
 
 def main():
+    try:                    # so --brief never crashes on a non-UTF-8 console (Windows)
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default=None)
     ap.add_argument("--public-only", action="store_true")
     ap.add_argument("--local-only", action="store_true")
+    ap.add_argument("--no-llm", action="store_true", help="skip the LLM pass even if enabled (fast, for session hooks)")
+    ap.add_argument("--brief", nargs="?", type=int, const=12, default=None,
+                    help="print the top-N priority threads to stdout (for a session-start hook / brief)")
     args = ap.parse_args()
     cfg_path = args.config or (os.path.join(HERE, "config.local.json")
                                if os.path.exists(os.path.join(HERE, "config.local.json"))
@@ -320,7 +327,7 @@ def main():
             items += harvest_file(path, src.get("label", "notes"), markers)
 
     print(f"config: {os.path.basename(cfg_path)}  |  harvested {len(items)} open threads")
-    if cfg.get("llm", {}).get("enabled"):
+    if cfg.get("llm", {}).get("enabled") and not args.no_llm:
         try:
             import llm
             items = llm.enrich(items, cfg)
@@ -334,6 +341,17 @@ def main():
         redact = (lambda s: s) if cfg["redact"].get("mode") == "structural" else load_redactor(cfg)
         p = write_html(cfg, build_dataset(cfg, items, True, redact), cfg["output"]["public"])
         print(f"  PUBLIC (redacted)     -> {p}")
+    if args.brief is not None:
+        top = sorted(items, key=lambda x: (x.get("priority", 0), -1 if x["age"] is None else x["age"]), reverse=True)[:args.brief]
+        hi = sum(1 for i in items if i.get("tier") == "high")
+        ns = sum(1 for i in items if i["kind"] == "not_sent")
+        st = sum(1 for i in items if i["age"] is not None and i["age"] > 10)
+        print(f"\n=== TOP {len(top)} OPEN THREADS — {len(items)} total · {hi} high · {ns} not-sent · {st} stale>10d ===")
+        for n, it in enumerate(top, 1):
+            age = "—" if it["age"] is None else (f"{it['age']}d")
+            print(f"{n:>2}. [P{it.get('priority',0)} {it.get('tier','low')}/{it['kind']}] {it['text']}  ({it['project']}, {age})")
+        print("\n→ Triage: which 3-5 of these should be tackled or sorted out first today, and why? "
+              "Weigh urgency (gates, not-sent, deadlines), staleness, and leverage — not just the number.")
 
 # ------------------------------------------------------------------ template
 TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
