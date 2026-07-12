@@ -330,5 +330,20 @@ class TestBugFixes(unittest.TestCase):
             self.assertEqual(h.tier(s), llm._tier(s), f"tier drift at {s}")
 
 
+class TestTemplateEscaping(unittest.TestCase):
+    """Every config-sourced value rendered into the DOM must pass through esc() — a poisoned
+    config (kind label, goal color/icon, kind key) must not be able to inject markup."""
+    def test_no_raw_config_interpolations(self):
+        t = h.TEMPLATE
+        for raw in ('data-k="${k}"', '${L[k]}', '--gc:${goal.color}', 'data-k="${it.kind}"'):
+            self.assertNotIn(raw, t, f"raw config interpolation still present: {raw}")
+
+    def test_escaped_forms_present(self):
+        t = h.TEMPLATE
+        for good in ("esc(k)", "esc(L[k])", "esc(goal.color)", "esc(goal.icon)",
+                     "esc(it.kind)", "esc(L[it.kind])", "esc(it.text)", "esc(it.source)", "esc(it.link)"):
+            self.assertIn(good, t, f"expected escaped interpolation missing: {good}")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

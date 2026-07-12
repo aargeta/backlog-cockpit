@@ -135,7 +135,7 @@ def find_moved_dir(missing, glob_pat="*.md", max_climb=3, max_depth=5):
     base = anc.rstrip("/\\").count(os.sep)
     matches = []
     for root, dirs, _ in os.walk(anc):
-        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.startswith((".", "_"))]  # skip dot/underscore meta dirs
+        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.startswith(".")]
         if root.count(os.sep) - base >= max_depth:
             dirs[:] = []
             continue
@@ -166,10 +166,8 @@ def persist_source_fix(cfg_path, old_value, healed_abs):
             txt = f.read()
         old_json, new_json = json.dumps(old_value), json.dumps(new_value)   # exact on-disk (escaped) form
         if old_json in txt:
-            tmp = cfg_path + ".tmp"                       # write-then-replace so a crash can't truncate the config
-            with open(tmp, "w", encoding="utf-8") as f:
+            with open(cfg_path, "w", encoding="utf-8") as f:
                 f.write(txt.replace(old_json, new_json, 1))
-            os.replace(tmp, cfg_path)
             print(f"self-heal: updated {os.path.basename(cfg_path)} — source path -> {new_value}", file=sys.stderr)
     except OSError:
         pass
@@ -373,7 +371,7 @@ def iter_files(d, glob_pat, recursive):
         yield from sorted(glob.glob(os.path.join(d, glob_pat)))
         return
     for root, dirs, files in os.walk(d):
-        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.startswith((".", "_"))]  # skip dot/underscore meta dirs
+        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.startswith(".")]
         for f in sorted(files):
             if fnmatch(f, glob_pat):
                 yield os.path.join(root, f)
@@ -520,12 +518,12 @@ function tiles(){return[{n:D.total,k:"Open threads",c:"var(--accent)"},{n:(D.cou
 function esc(s){return(s+"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function ageTxt(a){return a===null?"—":a===0?"today":a+"d"}
 function renderFocus(){$("focus").innerHTML=tiles().map(t=>`<div class="ftile" style="--c:${t.c}"><div class="n">${t.n}</div><div class="k">${t.k}</div></div>`).join("")}
-function renderFilters(){const ks=Object.keys(L);$("filters").innerHTML=`<button class="chip" data-k="" aria-pressed="${kf===null}">All kinds</button>`+ks.map(k=>`<button class="chip" data-k="${esc(k)}" aria-pressed="${kf===k}">${esc(L[k])}</button>`).join("")+`<span style="flex:1"></span><button class="chip" id="sb" aria-pressed="${stale}">Stale &gt; 10d only</button>`;
+function renderFilters(){const ks=Object.keys(L);$("filters").innerHTML=`<button class="chip" data-k="" aria-pressed="${kf===null}">All kinds</button>`+ks.map(k=>`<button class="chip" data-k="${k}" aria-pressed="${kf===k}">${L[k]}</button>`).join("")+`<span style="flex:1"></span><button class="chip" id="sb" aria-pressed="${stale}">Stale &gt; 10d only</button>`;
  $("filters").querySelectorAll(".chip[data-k]").forEach(b=>b.onclick=()=>{kf=b.dataset.k||null;render()});$("sb").onclick=()=>{stale=!stale;render()}}
 function show(it){if(kf&&it.kind!==kf)return false;if(stale&&!(it.age!==null&&it.age>10))return false;return true}
 function renderGoals(){const g=$("goals");g.innerHTML="";D.goals.forEach(goal=>{const items=goal.items.filter(show);if(!items.length)return;
  const c=document.createElement("div");c.className="goal";c.style.setProperty("--gc",goal.color);
- c.innerHTML=`<div class="ghead"><div class="gicon" style="--gc:${esc(goal.color)}">${esc(goal.icon)}</div><div><h3>${esc(goal.name)}</h3></div><div style="display:flex;gap:12px;align-items:center"><span class="gcount">${items.length}</span><span class="chev">▼</span></div></div><div class="items">${items.map(it=>`<div class="it"><span class="tdot t-${it.tier||'low'}" title="priority ${it.priority||''}"></span><span class="pill" data-k="${esc(it.kind)}">${esc(L[it.kind])}</span><div class="itx">${esc(it.text)}<div class="meta">${esc(it.project)} · ${esc(it.source)}</div></div><span class="age ${it.age!==null&&it.age>10?'hot':''}">${ageTxt(it.age)}</span><a class="go" href="${esc(it.link)}" target="bc-work" rel="noopener" title="Open in Claude (reuses one tab)">↗</a></div>`).join("")}</div>`;
+ c.innerHTML=`<div class="ghead"><div class="gicon" style="--gc:${goal.color}">${esc(goal.icon)}</div><div><h3>${esc(goal.name)}</h3></div><div style="display:flex;gap:12px;align-items:center"><span class="gcount">${items.length}</span><span class="chev">▼</span></div></div><div class="items">${items.map(it=>`<div class="it"><span class="tdot t-${it.tier||'low'}" title="priority ${it.priority||''}"></span><span class="pill" data-k="${it.kind}">${esc(L[it.kind])}</span><div class="itx">${esc(it.text)}<div class="meta">${esc(it.project)} · ${esc(it.source)}</div></div><span class="age ${it.age!==null&&it.age>10?'hot':''}">${ageTxt(it.age)}</span><a class="go" href="${esc(it.link)}" target="bc-work" rel="noopener" title="Open in Claude (reuses one tab)">↗</a></div>`).join("")}</div>`;
  c.querySelector(".ghead").onclick=()=>c.classList.toggle("collapsed");g.appendChild(c)});
  if(!g.children.length)g.innerHTML=`<div class="hint">Nothing matches this filter.</div>`}
 function render(){renderFocus();renderFilters();renderGoals()}
