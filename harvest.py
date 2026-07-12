@@ -102,7 +102,7 @@ def deep_merge(base, over):
 def load_config(path):
     cfg = DEFAULTS
     if path and os.path.exists(path):
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8-sig") as f:   # tolerate a UTF-8 BOM (Windows editors add one)
             cfg = deep_merge(DEFAULTS, json.load(f))
     if not cfg.get("goals"):
         raise SystemExit("config error: 'goals' must be a non-empty list (keep a '.*' catch-all last).")
