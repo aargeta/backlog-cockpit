@@ -16,3 +16,8 @@ __pycache__/
 .wrangler/
 node_modules/
 dist/
+
+# python build artifacts
+build/
+*.egg-info/
+*.egg
