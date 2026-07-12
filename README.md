@@ -20,7 +20,7 @@ into a session hook), and open the dashboard. That's the whole loop.
 
 ## What it does
 
-- Scans the note folders you point it at (Obsidian vault, a `memory/` dir, plain notes — anything Markdown).
+- Scans the note folders you point it at (Obsidian vault, a `memory/` dir, plain notes — anything Markdown), **recursively** — nested vaults included, junk/archive dirs skipped. Set a source's `"recursive": false` for a flat scan.
 - Pulls open threads from a tuned marker vocabulary **and Markdown checkboxes** — `- [ ]` is an open
   task, `- [x]` and `~~struck~~` are closed and skipped. Catches multiline sub-bullets, and skips
   noun false-positives like "signature *block*".
@@ -51,7 +51,8 @@ python harvest.py                             # writes both builds
 open cockpit.local.html                       # (or double-click it)
 ```
 
-No pip installs — standard library only. Python 3.8+.
+No pip installs needed — standard library only, Python 3.8+. (Optional: `pip install .` gives you a
+`backlog-cockpit` command; `backlog-cockpit --version` to check.)
 
 ## Use it with Claude Code (the plumbing)
 

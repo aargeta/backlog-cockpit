@@ -17,6 +17,12 @@ The engine holds NO personal data. Everything specific to you lives in your conf
 MIT licensed.
 """
 import os, re, sys, json, glob, argparse, datetime, urllib.parse
+from fnmatch import fnmatch
+
+VERSION = "1.0.0"
+# dirs never descended into during recursive source scans / self-heal search
+SKIP_DIRS = {"node_modules", ".git", ".obsidian", "__pycache__", "_archive", "90-Archive",
+             ".venv", "venv", "dist", "build", ".idea", ".vscode"}
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TODAY = datetime.date.today()
@@ -108,30 +114,38 @@ def xpath(p):
     return os.path.expanduser(p)
 
 # ------------------------------------------------------------------ self-heal (moved source dirs)
-def find_moved_dir(missing, max_depth=6):
-    """A source dir vanished — search its deepest EXISTING ancestor for a folder of the same
-    basename (the classic 'I reorganized my vault' case). Return the path only if exactly one
-    match is found (unambiguous), else None. Bounded search depth so it can't run away."""
+def find_moved_dir(missing, glob_pat="*.md", max_climb=3, max_depth=5):
+    """A source dir vanished — search its nearest EXISTING ancestor for a folder of the same
+    basename that actually contains matching files (the 'I reorganized my vault' case).
+    Best-effort and conservative: heals only on exactly ONE validated match, won't climb far to
+    find an existing ancestor (a very stale path is too risky to guess), skips junk/archive dirs,
+    and bounds the walk depth. Returns None (-> caller warns loudly) when unsure."""
     missing = os.path.normpath(missing)
     target = os.path.basename(missing.rstrip("/\\"))
     if not target:
         return None
-    anc = os.path.dirname(missing)
-    while anc and not os.path.isdir(anc):          # climb to the nearest ancestor that still exists
+    anc, climbed = os.path.dirname(missing), 0
+    while anc and not os.path.isdir(anc):
         parent = os.path.dirname(anc)
-        if parent == anc:
+        if parent == anc or climbed >= max_climb:   # existing ancestor too far up -> too risky
             return None
-        anc = parent
+        anc, climbed = parent, climbed + 1
     if not os.path.isdir(anc):
         return None
     base = anc.rstrip("/\\").count(os.sep)
     matches = []
     for root, dirs, _ in os.walk(anc):
+        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.startswith(".")]
         if root.count(os.sep) - base >= max_depth:
             dirs[:] = []
             continue
         if target in dirs:
-            matches.append(os.path.join(root, target))
+            cand = os.path.join(root, target)
+            try:                        # validate: the folder must actually hold matching files
+                if any(fnmatch(f, glob_pat) for f in os.listdir(cand)):
+                    matches.append(cand)
+            except OSError:
+                pass
     return matches[0] if len(matches) == 1 else None
 
 def to_config_path(p):
@@ -142,16 +156,18 @@ def to_config_path(p):
     return p.replace("\\", "/")
 
 def persist_source_fix(cfg_path, old_value, healed_abs):
-    """Surgically rewrite the moved source path in the config file (preserves formatting)."""
-    if not cfg_path or not os.path.exists(cfg_path):
+    """Surgically rewrite the moved source path in the config file (preserves formatting). Matches
+    the JSON-ESCAPED form so Windows backslash paths heal too; never mutates the tracked template."""
+    if not cfg_path or not os.path.exists(cfg_path) or os.path.basename(cfg_path) == "config.example.json":
         return
     new_value = to_config_path(healed_abs)
     try:
         with open(cfg_path, encoding="utf-8") as f:
             txt = f.read()
-        if '"' + old_value + '"' in txt:
+        old_json, new_json = json.dumps(old_value), json.dumps(new_value)   # exact on-disk (escaped) form
+        if old_json in txt:
             with open(cfg_path, "w", encoding="utf-8") as f:
-                f.write(txt.replace('"' + old_value + '"', '"' + new_value + '"', 1))
+                f.write(txt.replace(old_json, new_json, 1))
             print(f"self-heal: updated {os.path.basename(cfg_path)} — source path -> {new_value}", file=sys.stderr)
     except OSError:
         pass
@@ -179,7 +195,7 @@ def compile_markers(cfg):
 
 def parse_frontmatter(txt):
     fm = {}
-    m = re.match(r"^---\n(.*?)\n---\n", txt, re.S)
+    m = re.match(r"^---\r?\n(.*?)\r?\n---\r?\n", txt, re.S)   # tolerate CRLF (Windows-authored notes)
     if m:
         for line in m.group(1).splitlines():
             if ":" in line:
@@ -203,8 +219,9 @@ def days_old(fm, path):
         return None
 
 def clean(line):
-    s = re.sub(r"^[\s>*\-+•#\d.]+", "", line).strip()
-    s = re.sub(r"^\[[ xX]\]\s*", "", s)          # strip a leading checkbox marker
+    # strip only genuine leading markdown markers (bullet, "N.", heading, blockquote, checkbox) —
+    # never content digits/dashes, so a leading id like "2607-491 …" survives.
+    s = re.sub(r"^\s*(?:[-*+•]\s+|\d+\.\s+|#{1,6}\s+|>\s*|\[[ xX]\]\s*)+", "", line).strip()
     s = re.sub(r"[*_`]{1,2}", "", s)
     return re.sub(r"\s+", " ", s)[:220]
 
@@ -251,7 +268,7 @@ def harvest_file(path, label, markers):
                 break
             block.append(nstr); i += 1; taken += 1
         c = clean(" ".join(block))
-        key = c.lower()[:80]
+        key = c.lower()                 # dedup on the full text, not an 80-char prefix (avoid collisions)
         if len(c) < 6 or key in seen:
             continue
         seen.add(key)
@@ -347,12 +364,55 @@ def write_html(cfg, data, out_path):
         f.write(TEMPLATE.replace("/*DATA*/", payload))
     return out_path
 
+def iter_files(d, glob_pat, recursive):
+    """Yield note files under d. Recursive by default (Obsidian vaults are nested), skipping
+    junk/archive dirs; set a source's "recursive": false for a flat, top-level-only scan."""
+    if not recursive:
+        yield from sorted(glob.glob(os.path.join(d, glob_pat)))
+        return
+    for root, dirs, files in os.walk(d):
+        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.startswith(".")]
+        for f in sorted(files):
+            if fnmatch(f, glob_pat):
+                yield os.path.join(root, f)
+
+def harvest_sources(cfg, cfg_path, markers):
+    items = []
+    for src in cfg["sources"]:
+        d = xpath(src["dir"])
+        if not os.path.isdir(d):
+            healed = find_moved_dir(d, src.get("glob", "*.md")) if cfg.get("self_heal", True) else None
+            if healed:                # the folder moved (e.g. a vault reorg) — repair automatically
+                print(f"self-heal: '{src['dir']}' not found -> using moved folder '{healed}'", file=sys.stderr)
+                persist_source_fix(cfg_path, src["dir"], healed)
+                d = healed
+            else:                     # fail loud, not a silent undercount
+                print(f"WARNING: source dir not found — '{src['dir']}' (resolved: {d}). 0 items; "
+                      f"did the folder move, get renamed, or split into copies?", file=sys.stderr)
+                continue
+        inc, exc = src.get("include_prefix"), src.get("exclude_prefix", [])
+        recursive = src.get("recursive", True)
+        matched = 0
+        for path in iter_files(d, src.get("glob", "*.md"), recursive):
+            base = os.path.basename(path)
+            if inc and not any(base.startswith(p) for p in inc):
+                continue
+            if any(base.startswith(p) for p in exc):
+                continue
+            items += harvest_file(path, src.get("label", "notes"), markers)
+            matched += 1
+        if matched == 0:
+            print(f"WARNING: source '{src['dir']}' matched 0 files "
+                  f"(glob '{src.get('glob','*.md')}', recursive={recursive}).", file=sys.stderr)
+    return items
+
 def main():
     try:                    # so --brief never crashes on a non-UTF-8 console (Windows)
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
     ap = argparse.ArgumentParser()
+    ap.add_argument("--version", action="version", version=f"backlog-cockpit {VERSION}")
     ap.add_argument("--config", default=None)
     ap.add_argument("--public-only", action="store_true")
     ap.add_argument("--local-only", action="store_true")
@@ -366,31 +426,7 @@ def main():
     cfg = load_config(cfg_path)
     markers = compile_markers(cfg)
 
-    items = []
-    for src in cfg["sources"]:
-        d = xpath(src["dir"])
-        if not os.path.isdir(d):
-            healed = find_moved_dir(d) if cfg.get("self_heal", True) else None
-            if healed:                # the folder moved (e.g. a vault reorg) — repair automatically
-                print(f"self-heal: '{src['dir']}' not found -> found moved folder at '{healed}'", file=sys.stderr)
-                persist_source_fix(cfg_path, src["dir"], healed)
-                d = healed
-            else:                     # fail loud, not a silent undercount
-                print(f"WARNING: source dir not found — '{src['dir']}' (resolved: {d}). 0 items from it; "
-                      f"did the folder move, get renamed, or split into multiple copies?", file=sys.stderr)
-                continue
-        matched = sorted(glob.glob(os.path.join(d, src.get("glob", "*.md"))))
-        before = len(items)
-        for path in matched:
-            base = os.path.basename(path)
-            inc, exc = src.get("include_prefix"), src.get("exclude_prefix", [])
-            if inc and not any(base.startswith(p) for p in inc):
-                continue
-            if any(base.startswith(p) for p in exc):
-                continue
-            items += harvest_file(path, src.get("label", "notes"), markers)
-        if not matched:
-            print(f"WARNING: source '{src['dir']}' exists but matched 0 files (glob '{src.get('glob','*.md')}').", file=sys.stderr)
+    items = harvest_sources(cfg, cfg_path, markers)
 
     print(f"config: {os.path.basename(cfg_path)}  |  harvested {len(items)} open threads")
     if cfg.get("llm", {}).get("enabled") and not args.no_llm:
@@ -487,7 +523,7 @@ function renderFilters(){const ks=Object.keys(L);$("filters").innerHTML=`<button
 function show(it){if(kf&&it.kind!==kf)return false;if(stale&&!(it.age!==null&&it.age>10))return false;return true}
 function renderGoals(){const g=$("goals");g.innerHTML="";D.goals.forEach(goal=>{const items=goal.items.filter(show);if(!items.length)return;
  const c=document.createElement("div");c.className="goal";c.style.setProperty("--gc",goal.color);
- c.innerHTML=`<div class="ghead"><div class="gicon" style="--gc:${goal.color}">${goal.icon}</div><div><h3>${esc(goal.name)}</h3></div><div style="display:flex;gap:12px;align-items:center"><span class="gcount">${items.length}</span><span class="chev">▼</span></div></div><div class="items">${items.map(it=>`<div class="it"><span class="tdot t-${it.tier||'low'}" title="priority ${it.priority||''}"></span><span class="pill" data-k="${it.kind}">${L[it.kind]}</span><div class="itx">${esc(it.text)}<div class="meta">${esc(it.project)} · ${it.source}</div></div><span class="age ${it.age!==null&&it.age>10?'hot':''}">${ageTxt(it.age)}</span><a class="go" href="${esc(it.link)}" target="bc-work" rel="noopener" title="Open in Claude (reuses one tab)">↗</a></div>`).join("")}</div>`;
+ c.innerHTML=`<div class="ghead"><div class="gicon" style="--gc:${goal.color}">${esc(goal.icon)}</div><div><h3>${esc(goal.name)}</h3></div><div style="display:flex;gap:12px;align-items:center"><span class="gcount">${items.length}</span><span class="chev">▼</span></div></div><div class="items">${items.map(it=>`<div class="it"><span class="tdot t-${it.tier||'low'}" title="priority ${it.priority||''}"></span><span class="pill" data-k="${it.kind}">${esc(L[it.kind])}</span><div class="itx">${esc(it.text)}<div class="meta">${esc(it.project)} · ${esc(it.source)}</div></div><span class="age ${it.age!==null&&it.age>10?'hot':''}">${ageTxt(it.age)}</span><a class="go" href="${esc(it.link)}" target="bc-work" rel="noopener" title="Open in Claude (reuses one tab)">↗</a></div>`).join("")}</div>`;
  c.querySelector(".ghead").onclick=()=>c.classList.toggle("collapsed");g.appendChild(c)});
  if(!g.children.length)g.innerHTML=`<div class="hint">Nothing matches this filter.</div>`}
 function render(){renderFocus();renderFilters();renderGoals()}

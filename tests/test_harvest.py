@@ -219,35 +219,100 @@ class TestLLM(unittest.TestCase):
         self.assertEqual(out[0]["text"], "keep me")
 
 
+def _mkfolder(*parts, files=("note.md",)):
+    d = os.path.join(*parts); os.makedirs(d)
+    for f in files:
+        open(os.path.join(d, f), "w").close()
+    return d
+
+
 class TestSelfHeal(unittest.TestCase):
     def test_finds_uniquely_moved_folder(self):
         root = tempfile.mkdtemp()
-        moved = os.path.join(root, "new-area", "my-notes"); os.makedirs(moved)
-        missing = os.path.join(root, "old-area", "my-notes")   # gone; nearest existing ancestor is root
+        moved = _mkfolder(root, "new-area", "my-notes")            # moved here, has a .md
+        missing = os.path.join(root, "old-area", "my-notes")       # gone; nearest ancestor is root
         self.assertEqual(os.path.normpath(h.find_moved_dir(missing)), os.path.normpath(moved))
+
+    def test_rejects_empty_same_name_folder(self):
+        root = tempfile.mkdtemp()
+        os.makedirs(os.path.join(root, "new-area", "my-notes"))    # same name but NO matching files
+        self.assertIsNone(h.find_moved_dir(os.path.join(root, "old", "my-notes")))
 
     def test_ambiguous_match_returns_none(self):
         root = tempfile.mkdtemp()
-        os.makedirs(os.path.join(root, "a", "dup")); os.makedirs(os.path.join(root, "b", "dup"))
-        self.assertIsNone(h.find_moved_dir(os.path.join(root, "gone", "dup")))   # 2 matches -> refuse to guess
+        _mkfolder(root, "a", "dup"); _mkfolder(root, "b", "dup")   # two valid matches -> refuse to guess
+        self.assertIsNone(h.find_moved_dir(os.path.join(root, "gone", "dup")))
+
+    def test_refuses_when_ancestor_too_far(self):
+        root = tempfile.mkdtemp()
+        _mkfolder(root, "notes")
+        missing = os.path.join(root, "a", "b", "c", "d", "notes")  # >3 climbs to reach an existing ancestor
+        self.assertIsNone(h.find_moved_dir(missing))
+
+    def test_skips_junk_dirs(self):
+        root = tempfile.mkdtemp()
+        _mkfolder(root, "node_modules", "notes"); _mkfolder(root, "real", "notes")
+        self.assertEqual(os.path.normpath(h.find_moved_dir(os.path.join(root, "x", "notes"))),
+                         os.path.normpath(os.path.join(root, "real", "notes")))   # junk copy ignored -> unique
 
     def test_no_match_returns_none(self):
-        root = tempfile.mkdtemp()
-        self.assertIsNone(h.find_moved_dir(os.path.join(root, "gone", "nothing-like-this")))
+        self.assertIsNone(h.find_moved_dir(os.path.join(tempfile.mkdtemp(), "gone", "nothing-like-this")))
 
     def test_to_config_path_tildes_home(self):
         p = h.to_config_path(os.path.join(os.path.expanduser("~"), "x", "y"))
-        self.assertTrue(p.startswith("~/"))
-        self.assertNotIn("\\", p)
+        self.assertTrue(p.startswith("~/")); self.assertNotIn("\\", p)
 
-    def test_persist_rewrites_config_surgically(self):
-        d = tempfile.mkdtemp(); cfgp = os.path.join(d, "c.json")
-        with open(cfgp, "w", encoding="utf-8") as f:
-            f.write('{\n  "sources": [ { "dir": "~/old/place" } ]\n}\n')
+    def test_persist_rewrites_forward_slash_config(self):
+        d = tempfile.mkdtemp(); cfgp = os.path.join(d, "config.local.json")
+        open(cfgp, "w", encoding="utf-8").write('{ "sources": [ { "dir": "~/old/place" } ] }')
         h.persist_source_fix(cfgp, "~/old/place", os.path.join(os.path.expanduser("~"), "new", "place"))
         txt = open(cfgp, encoding="utf-8").read()
-        self.assertIn("~/new/place", txt)
-        self.assertNotIn("~/old/place", txt)
+        self.assertIn("~/new/place", txt); self.assertNotIn("~/old/place", txt)
+
+    def test_persist_rewrites_backslash_config(self):        # the silent-no-op bug
+        d = tempfile.mkdtemp(); cfgp = os.path.join(d, "config.local.json")
+        raw = json.dumps({"sources": [{"dir": "C:\\Users\\me\\old"}]})   # escaped backslashes on disk
+        open(cfgp, "w", encoding="utf-8").write(raw)
+        h.persist_source_fix(cfgp, "C:\\Users\\me\\old", "D:\\notes\\new")
+        self.assertNotIn("me\\\\old", open(cfgp, encoding="utf-8").read())
+
+    def test_persist_never_touches_example_config(self):
+        d = tempfile.mkdtemp(); cfgp = os.path.join(d, "config.example.json")
+        open(cfgp, "w", encoding="utf-8").write('{ "sources": [ { "dir": "~/old" } ] }')
+        h.persist_source_fix(cfgp, "~/old", os.path.join(os.path.expanduser("~"), "new"))
+        self.assertIn("~/old", open(cfgp, encoding="utf-8").read())     # unchanged
+
+
+class TestBugFixes(unittest.TestCase):
+    def test_clean_preserves_leading_id(self):
+        self.assertEqual(h.clean("2607-491 send the Wauchula proposal"), "2607-491 send the Wauchula proposal")
+
+    def test_clean_strips_only_real_markers(self):
+        self.assertEqual(h.clean("- [ ] wire the button"), "wire the button")
+        self.assertEqual(h.clean("1. do the thing"), "do the thing")
+        self.assertEqual(h.clean("### heading text"), "heading text")
+
+    def test_crlf_frontmatter(self):                          # Windows-authored notes
+        fm = h.parse_frontmatter("---\r\nname: Demo\r\nlast_worked: 2026-06-01\r\n---\r\nbody\r\n")
+        self.assertEqual(fm.get("name"), "Demo")
+        self.assertEqual(fm.get("last_worked"), "2026-06-01")
+
+    def test_dedup_keeps_distinct_lines_sharing_prefix(self):
+        pre = "Next: coordinate with the structural engineer on the foundation for building "
+        items = harvest_text(pre + "A: verify the rebar spacing meets spec\n" + pre + "B: confirm the pour date\n")
+        self.assertEqual(len(items), 2)                       # 80-char prefix collision no longer merges them
+
+    def test_recursive_scan_finds_nested_and_skips_junk(self):
+        root = tempfile.mkdtemp()
+        os.makedirs(os.path.join(root, "sub", "deep"))
+        open(os.path.join(root, "top.md"), "w", encoding="utf-8").write("TODO: top\n")
+        open(os.path.join(root, "sub", "deep", "nested.md"), "w", encoding="utf-8").write("TODO: nested\n")
+        _mkfolder(root, "node_modules", files=("junk.md",))    # must be ignored
+        open(os.path.join(root, "node_modules", "junk.md"), "w", encoding="utf-8").write("TODO: junk\n")
+        found = list(h.iter_files(root, "*.md", recursive=True))
+        names = {os.path.basename(p) for p in found}
+        self.assertIn("nested.md", names); self.assertIn("top.md", names)
+        self.assertTrue(all("node_modules" not in p for p in found))
 
 
 if __name__ == "__main__":
